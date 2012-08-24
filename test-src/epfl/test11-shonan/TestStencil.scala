@@ -21,7 +21,8 @@ class TestStencil extends FileDiffSuite {
     def staticData[T:Manifest](x: T): Rep[T]
     def test(x: Rep[Array[Int]]): Rep[Array[Int]]
   }
-  trait Impl extends DSL with Runner with ArrayOpsExpOpt with NumericOpsExpOpt with OrderingOpsExpOpt with BooleanOpsExp 
+  trait Impl extends DSL with Runner with ArrayOpsExpOpt with NumericOpsExpOpt 
+      with OrderingOpsExpOpt with BooleanOpsExp 
       with EqualExpOpt with VariablesExpOpt with RangeOpsExp with StaticDataExp
       with IfThenElseExpOpt with PrintExp 
       with CompileScala { self => 
@@ -42,32 +43,106 @@ class TestStencil extends FileDiffSuite {
     }
   }
 
-/*
+
   trait Sliding extends DSL {
     
-    def infix_sliding(n: Rep[Int], f: Rep[Int] => Rep[Double]): Rep[Array[Double]]
+    def infix_sliding[T:Manifest](n: Rep[Int], f: Rep[Int] => Rep[T]): Rep[Array[T]]
     
   }
   
-  trait SlidingExp extends Impl with Sliding {
+  trait SlidingExp extends ArrayOpsExpOpt with NumericOpsExpOpt 
+      with OrderingOpsExpOpt with BooleanOpsExp 
+      with EqualExpOpt with VariablesExpOpt with RangeOpsExp
+      with IfThenElseExpOpt {
     
-    def infix_sliding(n: Rep[Int], f: Rep[Int] => Rep[Double]): Rep[Array[Double]] = {
-      val a = NewArray[Double](n)
-      (0 until n) foreach { i =>
-        a(i) = f(i)
+    /*
+    idea:
+      
+      loop(n) { i => f(i) }
+      
+      evaluate f(i), stms0 be all statements computed
+      treat all defined syms as outputs: (s1,s2,s3,r)
+      
+      loop(n) { i => (s1,s2,s3,r) }
+      
+      
+
+      
+      
+    */
+    
+    
+    
+    
+    def infix_sliding[T:Manifest](n: Rep[Int], f: Rep[Int] => Rep[T]): Rep[Array[T]] = {
+      val a = NewArray[T](n)
+      (unit(0) until (n-unit(1))) foreach { i =>
+        
+        // evaluate loop contents f(i)
+        val (r0,stms0) = reifySubGraph(f(i))
+        reflectSubGraph(stms0)
+        stms0.foreach(println)
+        
+        val defs = stms0.flatMap(_.lhs)
+        
+        a(i) = r0
+        
+        // evaluate loop contents f(i+1)
+        val (r1,stms1) = reifySubGraph(f(i+1))
+        reflectSubGraph(stms1)
+        
+        println("r1:")
+        stms1.foreach(println)
+
+        // see what f(i+1) can reuse from f(i)
+        val overlap = stms1.flatMap { case TP(s,d) => syms(d) filter (defs contains _) }
+
+        println("overlap:")
+        overlap.foreach(println)
+        
+        // build a variable for each overlap sym.
+        // init variables by peeling first loop iteration.
+        // replace overlap
+        
+        // need to figure out new values to assign to vars ...
+        
+        a(i+1) = r1
       }
       a
     }
     
     
   }
-*/
 
 
   val prefix = "test-out/epfl/test11-"
   
+
   def testStencil1 = {
     withOutFileChecked(prefix+"stencil1") {
+      trait Prog extends DSL with Sliding {
+        def test(v: Rep[Array[Int]]) = {
+
+          val n = 20
+          
+          def compute(i: Rep[Int]) = 2 * i + 3
+          
+          val res = n sliding { i =>
+            compute(i) + compute(i+1)
+          }
+          
+          res
+        }
+      }
+      new Prog with Impl with SlidingExp
+    }
+  }
+
+
+
+
+  def testStencil2 = {
+    withOutFileChecked(prefix+"stencil2") {
       trait Prog extends DSL {
         def test(v: Rep[Array[Int]]) = {
 
