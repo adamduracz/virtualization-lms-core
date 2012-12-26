@@ -46,9 +46,10 @@ trait ScalaCompile extends Expressions {
 
   var compileCount = 0
   
-  var dumpGeneratedCode = false
+  // var dumppGeneratedCode = true  
 
   def compile[A,B](f: Exp[A] => Exp[B])(implicit mA: Manifest[A], mB: Manifest[B]): A=>B = {
+    print("fooooo")
     if (this.compiler eq null)
       setupCompiler()
     
@@ -58,7 +59,8 @@ trait ScalaCompile extends Expressions {
     val source = new StringWriter()
     val staticData = codegen.emitSource(f, className, new PrintWriter(source))
 
-    if (dumpGeneratedCode) println(source)
+    // if (dumppGeneratedCode) println(source)
+    println(source)
 
     val compiler = this.compiler
     val run = new compiler.Run
